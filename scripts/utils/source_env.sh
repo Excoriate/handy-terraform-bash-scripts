@@ -16,34 +16,34 @@ env_source_main(){
 }
 
 initialize_or_fallback(){
-	if [[ -z ${ENV} ]];
+	if [[ -z ${FILE} ]];
 		then
 			echo "Fallback option. Setting to .env"
 			echo
-			ENV=".env"
+			FILE=".env"
 	fi
 }
 
 run_pre_validations(){
-	if [[ ! -f ${ENV} ]];
+	if [[ ! -f ${FILE} ]];
 		then
-			echo "Error. Dot env file $ENV could not be found in path --> $(pwd)"
+			echo "Error. Dot env file $FILE could not be found in path --> $(pwd)"
 			echo
 			exit 4
 	fi
 
-	if [[ ! -s ${ENV} ]];
+	if [[ ! -s ${FILE} ]];
 		then
-			echo "Error. Dot env file $ENV is empty --> $(pwd)"
+			echo "Error. Dot env file $FILE is empty --> $(pwd)"
 			echo
 			exit 4
 		else
-			cat ${ENV}
+			cat ${FILE}
 	fi
 }
 
 source_env_in_current_shell_session(){
-	. ${ENV}
+	. ${FILE}
 	printenv
 }
 
