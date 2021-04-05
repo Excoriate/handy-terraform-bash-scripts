@@ -14,6 +14,7 @@ Even though, these scripts can be easily integrated on some `git hook` such as `
 | `terraform_clean`                                 | Get rid of the `.terraform` folder on local executions, after you've done all your local terraform commands. |
 | `terraform_sec`                            | Validates all Terraform configuration from the security point of view. It uses [TFSec](https://github.com/liamg/tfsec)                       |
 | `terraform_plan`                                | Execute terraform plan command onto specific terraform modules |
+| `terraform_init`                                | Execute terraform init command onto specific terraform modules |
 | `terraform_lifecycle`                                | Script that wraps the `terraform` licecycle: `init`, `plan`, `apply` and `destroy` |
 | `terraform_modules_auth_gitlab`                                | Whether you're using Gitlab and you're using private `terraform` modules within Gitlab, this script allows you authenticate your child modules and download (`terraform get`) other called modules from within Gitlab |
 
