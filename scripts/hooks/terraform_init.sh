@@ -4,10 +4,12 @@ set -eo pipefail
 
 export PATH=$PATH:/usr/local/bin
 
-plan_main() {
+init_main() {
   parsed_command_line_arguments "$@"
 
-  run_plan
+  run_pre_hook_validations
+
+  run_init
 }
 
 run_pre_hook_validations() {
@@ -19,11 +21,11 @@ run_pre_hook_validations() {
 usage() {
   cat - >&2 <<EOF
 NAME
-    terraform_plan.sh - Handy script to integrate in pre-commit or run in a stand-alone mode to wrap the terraform plan cmd
+    terraform_init.sh - Handy script to integrate in pre-commit or run in a stand-alone mode to wrap the terraform init cmd
 
 SYNOPSIS
-    terraform_plan.sh [-h|--help]
-    terraform_plan.sh [-d|--dir[=<arg>]]
+    terraform_init.sh [-h|--help]
+    terraform_init.sh [-d|--dir[=<arg>]]
                       [-v|--vars[=<arg>]]
                       [-b|--backend[=<arg>]]
                       [--]
@@ -53,6 +55,7 @@ fatal() {
 }
 
 parsed_command_line_arguments() {
+
   for arg in "$@"; do
     echo "argument received --> [$arg]"
   done
@@ -130,7 +133,8 @@ check_if_terraform_module_directory_exists() {
 
 # Validate if a given directory exists
 check_config_file_if_exists() {
-  local_config_file="$1"
+  pushd "$DIR" >/dev/null
+  local local_config_file="$1"
 
   if [ -f "$local_config_file" ]; then
     echo
@@ -144,6 +148,8 @@ check_config_file_if_exists() {
 
     exit 3
   fi
+
+  popd >/dev/null
 }
 
 # Clean up .terraform folder
@@ -193,48 +199,15 @@ run_terraform_init_cmd(){
   popd >/dev/null
 }
 
-run_terraform_plan_cmd(){
-  pushd "$DIR" >/dev/null
+run_init() {
 
-  echo "Terraform Plan command..."
-  echo
-
-  if [[ -z ${CONFIG_TERRAFORM_TFVARS_FILE_PATH} ]];
-    then
-      echo "Terraform Plan started without an specific terraform.tfvars file"
-      echo
-
-      terraform plan
-    else
-      echo "Terraform Plan with a [terraform.tfvars] file --> $CONFIG_TERRAFORM_TFVARS_FILE_PATH"
-      echo
-
-      check_config_file_if_exists "$CONFIG_TERRAFORM_TFVARS_FILE_PATH"
-
-      terraform plan \
-      -var-file="$CONFIG_TERRAFORM_TFVARS_FILE_PATH"
-  fi
-
-  popd >/dev/null
-}
-
-run_plan() {
-  # 1. Validate terraform module directory
-  check_if_terraform_module_directory_exists
-
-  # 2. Validate allowed files (.tf) in given directory
-  check_terraform_files_in_directory
-
-  # 3. Prevent previous executions and clean up .terraform folder directory from modules path
+  # Prevent previous executions and clean up .terraform folder directory from modules path
   clean_local_terraform_state_folder
 
-  # 4. Run terraform init. Required to execute later on the [terraform plan] command
+  # Run terraform init. Required to execute later on the [terraform plan] command
   run_terraform_init_cmd
 
-  # 5. Run terraform plan
-  run_terraform_plan_cmd
-
-  # 6.Clean up .terraform folder directory from modules path
+  # Clean up .terraform folder directory from modules path
   clean_local_terraform_state_folder
 }
 
@@ -243,4 +216,4 @@ declare -a DIR
 declare -a CONFIG_TERRAFORM_TFVARS_FILE_PATH
 declare -a CONFIG_TERRAFORM_REMOTE_BACKEND_FILE_PATH
 
-[[ ${BASH_SOURCE[0]} != "$0" ]] || plan_main "$@"
+[[ ${BASH_SOURCE[0]} != "$0" ]] || init_main "$@"

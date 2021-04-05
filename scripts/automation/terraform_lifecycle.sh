@@ -5,6 +5,8 @@ export PATH=$PATH:/usr/local/bin
 terraform_main(){
   parsed_command_line_arguments "$@"
 
+  check_input_variables
+
   execute_command
 }
 
@@ -15,10 +17,10 @@ NAME
     terraform_lifecycle.sh - Execute and wrap all terraform commands
 
 SYNOPSIS
-    terraform_fmt.sh [-h|--help]
-    terraform_fmt.sh [-t|--cmd[=<arg>]]
-    terraform_fmt.sh [-v|--vars[=<arg>]]
-    terraform_fmt.sh [-c|--config[=<arg>]]
+    terraform_lifecycle.sh [-h|--help]
+    terraform_lifecycle.sh [-t|--cmd[=<arg>]]
+    terraform_lifecycle.sh [-v|--vars[=<arg>]]
+    terraform_lifecycle.sh [-c|--config[=<arg>]]
                       [--]
 
 OPTIONS
@@ -78,7 +80,7 @@ clean_local_terraform_state_folder(){
     	pushd "$DIR" >/dev/null
 	 fi
 
-  terraform_folder=".terraform"
+  local terraform_folder=".terraform"
 
   if [ -d "$terraform_folder" ]; then
     echo "A .terraform folder has been found. Cleaning it to avoid TF state conflicts"
@@ -122,22 +124,6 @@ check_input_variables() {
   popd >/dev/null
 }
 
-# Checks whether the local directory passed as argument exists and its valid
-check_if_terraform_module_directory_exists() {
-  if [[ -d ${DIR} ]]; then
-    echo
-    echo "Terraform command will run on this module --> ${DIR} in path --> $(pwd)"
-    echo
-
-  else
-    echo
-    echo "Error: ${DIR} not found in path $(pwd)"
-    echo
-
-    exit 3
-  fi
-}
-
 # Error handling
 fatal() {
   for i; do
@@ -146,9 +132,37 @@ fatal() {
   exit 1
 }
 
+# check whether a directory exists
+check_whether_folder_exists(){
+	local passed_folder="$1"
+
+	if [[ -d ${passed_folder} ]];
+		then
+			echo "Folder $passed_folder validated in path --> $(pwd)"
+			echo
+		else
+			echo "Folder $passed_folder does not exists in path --> $(pwd)"
+	    exit 3
+	fi
+}
+
+run_validations(){
+
+	if [[ -z ${TF_COMMAND} ]];
+    then
+      echo "Error. Unknown or missing terraform command"
+      exit 4
+  fi
+
+	if [[ ${TF_COMMAND} != "init" ]] ||  [[ ${TF_COMMAND} != "plan" ]] ||  [[ ${TF_COMMAND} != "destroy" ]];
+    then
+      echo "Error. Unknown terraform command (should be either init, plan or destroy"
+      exit 4
+  fi
+}
+
 # Parse command line arguments
 parsed_command_line_arguments() {
-
   for arg in "$@"; do
     echo "argument received --> [$arg]"
     echo
@@ -162,13 +176,6 @@ parsed_command_line_arguments() {
       ;;
     -t=* | --command=*)
       TF_COMMAND="${i#*=}"
-
-      if [[ -z ${TF_COMMAND} ]];
-      	then
-      		echo "Error. Terraform cmd flag is missing"
-      		exit 1
-      fi
-
       shift
       ;;
     -d=* | --dir=*)
@@ -204,10 +211,6 @@ wrapper_init(){
     		echo "Directory scope set (establishing...)"
     		pushd "$DIR" >/dev/null
     fi
-
-    echo "directory received: --> $DIR in path $(pwd)"
-
-    clean_local_terraform_state_folder
 
     if [[ -z ${PATH_REMOTE_BACKED_CONFIG} ]];
     	then
@@ -246,13 +249,10 @@ wrapper_plan(){
     pushd "$DIR" >/dev/null
     echo "directory received: --> $DIR in path $(pwd)"
 
-    wrapper_init
-
     if [[ -z ${PATH_TF_VARS} ]];
     	then
     		echo "Terraform PLAN without terraform.tfvars set"
     		echo
-
     		terraform plan
     	else
 				echo "Terraform plan using this terraform.tfvars file --> ${PATH_TF_VARS}"
@@ -328,14 +328,8 @@ wrapper_destroy(){
 }
 
 execute_command(){
-	# Validate first whether the passed module exists
-	check_if_terraform_module_directory_exists
-
 	# Validate required files within the module directory
 	check_terraform_files_in_directory
-
-	# Validate input variables
-	check_input_variables
 
 	while true ; do
 			case "$TF_COMMAND" in
@@ -347,21 +341,27 @@ execute_command(){
 					;;
 
 					plan)
+							wrapper_init "true"
 							wrapper_plan
+							clean_local_terraform_state_folder "true"
 							exit "$?"
 
 							shift
 					;;
 
 					apply)
+							wrapper_init
 							wrapper_apply
+							clean_local_terraform_state_folder
 							exit "$?"
 
 							shift
 					;;
 
 					destroy)
+							wrapper_init
 							wrapper_destroy
+							clean_local_terraform_state_folder
 							exit "$?"
 
 							shift
@@ -382,9 +382,9 @@ execute_command(){
 }
 
 # Globals
-declare -a PATH_REMOTE_BACKED_CONFIG
-declare -a PATH_TF_VARS
-declare -a DIR
-declare -a TF_COMMAND
+declare PATH_REMOTE_BACKED_CONFIG
+declare PATH_TF_VARS
+declare DIR
+declare TF_COMMAND
 
 [[ ${BASH_SOURCE[0]} != "$0" ]] || terraform_main "$@"
